@@ -1,0 +1,354 @@
+<title>Stoplight Countdown</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Orbitron:wght@600;800&display=swap">
+<style>
+/* Layout: one big stage that changes color with the time left, a compact control bar underneath. Single dark look on purpose, like a stage clock. */
+:root {
+  --panel: #0d110f;
+  --surface: #151b17;
+  --line: #28322c;
+  --ink: #eaf1ec;
+  --muted: #92a398;
+  --go: #3ddc84;
+  --go-bg: #0b3320;
+  --warn: #ffc531;
+  --warn-bg: #3d2f00;
+  --stop: #ff5048;
+  --stop-bg: #4a100d;
+  --font-display: 'Orbitron', 'Arial Black', 'Segoe UI', sans-serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding-inline: 16px;
+  padding-block: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+}
+.stage {
+  --c: var(--go);
+  --b: var(--go-bg);
+  flex: 1;
+  min-height: 240px;
+  container-type: size;
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: var(--b);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background-color 0.7s ease;
+  user-select: none;
+}
+.stage[data-phase="yellow"] { --c: var(--warn); --b: var(--warn-bg); }
+.stage[data-phase="red"], .stage[data-phase="done"] { --c: var(--stop); --b: var(--stop-bg); }
+.stage:fullscreen { border-radius: 0; border: 0; }
+.stage:focus-visible, button:focus-visible, input:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+.label {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c);
+}
+.label span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: min(23cqw, 50cqh);
+  line-height: 1;
+  color: var(--c);
+  text-shadow: 0 0 0.35em color-mix(in srgb, var(--c) 45%, transparent);
+  transition: color 0.7s ease;
+}
+.readout .d { display: inline-block; width: 0.78em; text-align: center; }
+.readout .c { display: inline-block; width: 0.42em; text-align: center; padding-bottom: 0.06em; }
+.stage[data-phase="done"] .readout { animation: blink 0.9s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0.25; } }
+.bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 10px;
+  width: 100%;
+  background: rgba(255,255,255,0.08);
+}
+.bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--c);
+  transform-origin: left;
+  transition: background-color 0.7s ease;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.group { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; min-width: 0; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+input[type="number"] {
+  width: 4.6rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: 600 1.05rem var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+input[type="number"]:disabled { opacity: 0.5; }
+.sep { align-self: flex-end; padding-bottom: 9px; color: var(--muted); font-weight: 600; }
+button {
+  font: 600 0.95rem var(--font-body);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--go); color: #06230f; border-color: var(--go); min-width: 6.5rem; padding-block: 11px; }
+button.primary:hover { filter: brightness(1.08); }
+button[aria-pressed="true"] { border-color: var(--go); color: var(--go); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { padding: 8px 11px; font-weight: 500; }
+.hint { font-size: 0.78rem; color: var(--muted); flex-basis: 100%; }
+kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+@media (max-width: 520px) {
+  .controls { gap: 12px 14px; }
+  .group.main { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage, .readout, .bar i { transition: none; }
+  .stage[data-phase="done"] .readout { animation: none; }
+}
+</style>
+
+<main class="stage" id="stage" data-phase="green" role="timer" tabindex="0" aria-label="Countdown timer. Press to start or pause.">
+  <div class="label"><span id="phase">On track</span><span id="totalLabel">Total 05:00</span></div>
+  <div class="readout" id="readout" aria-hidden="true"></div>
+  <div class="bar"><i id="barFill"></i></div>
+</main>
+
+<section class="controls" aria-label="Timer controls">
+  <div class="group main">
+    <div class="field"><label for="min">Minutes</label><input id="min" type="number" min="0" max="99" value="5" inputmode="numeric"></div>
+    <span class="sep">:</span>
+    <div class="field"><label for="sec">Seconds</label><input id="sec" type="number" min="0" max="59" value="0" inputmode="numeric"></div>
+    <button class="primary" id="go" type="button">Start</button>
+    <button id="reset" type="button">Reset</button>
+    <button id="full" type="button">Fullscreen</button>
+    <button id="sound" type="button" aria-pressed="true">Sound on</button>
+  </div>
+  <div class="group">
+    <div class="presets" id="presets" role="group" aria-label="Quick times">
+      <button type="button" data-sec="60">1 min</button>
+      <button type="button" data-sec="180">3 min</button>
+      <button type="button" data-sec="300">5 min</button>
+      <button type="button" data-sec="600">10 min</button>
+      <button type="button" data-sec="900">15 min</button>
+      <button type="button" data-sec="1800">30 min</button>
+    </div>
+  </div>
+  <div class="group">
+    <div class="field"><label for="yel">Yellow at (sec left)</label><input id="yel" type="number" min="1" max="5999" value="75" inputmode="numeric"></div>
+    <div class="field"><label for="red">Red at (sec left)</label><input id="red" type="number" min="1" max="5999" value="30" inputmode="numeric"></div>
+  </div>
+  <p class="hint"><kbd>Space</kbd> start or pause &nbsp; <kbd>R</kbd> reset &nbsp; <kbd>F</kbd> fullscreen. Click the big clock to start or pause.</p>
+</section>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $('stage'), readout = $('readout'), barFill = $('barFill');
+  var total = 300, remaining = 300000, running = false, endAt = 0, timer = null;
+  var yellow = 75, red = 30, yEdited = false, rEdited = false;
+  var audio = null, soundOn = true, wake = null, finished = false;
+
+  var cells = [];
+  ['d', 'd', 'c', 'd', 'd'].forEach(function (k) {
+    var s = document.createElement('span');
+    s.className = k;
+    readout.appendChild(s);
+    cells.push(s);
+  });
+  cells[2].textContent = ':';
+
+  function two(n) { return (n < 10 ? '0' : '') + n; }
+  function fmt(s) { return two(Math.floor(s / 60)) + ':' + two(s % 60); }
+
+  function phaseFor(s) {
+    if (s <= 0) return 'done';
+    if (s <= red) return 'red';
+    if (s <= yellow) return 'yellow';
+    return 'green';
+  }
+  var LABELS = { green: 'On track', yellow: 'Wrap it up', red: 'Almost out of time', done: "Time's up" };
+
+  function render() {
+    var s = Math.ceil(remaining / 1000);
+    var t = fmt(s);
+    cells[0].textContent = t[0]; cells[1].textContent = t[1];
+    cells[3].textContent = t[3]; cells[4].textContent = t[4];
+    var p = phaseFor(s);
+    stage.dataset.phase = p;
+    $('phase').textContent = LABELS[p];
+    $('totalLabel').textContent = 'Total ' + fmt(total);
+    barFill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, remaining / (total * 1000))) + ')';
+    var btn = $('go');
+    btn.textContent = running ? 'Pause' : (remaining > 0 && remaining < total * 1000 ? 'Resume' : 'Start');
+    ['min', 'sec'].forEach(function (id) { $(id).disabled = running; });
+  }
+
+  function readThresholds() {
+    var y = parseInt($('yel').value, 10), r = parseInt($('red').value, 10);
+    yellow = isNaN(y) || y < 1 ? 1 : y;
+    red = isNaN(r) || r < 1 ? 1 : r;
+    if (yellow < red) yellow = red;
+  }
+
+  function autoThresholds() {
+    if (!yEdited) $('yel').value = Math.max(1, Math.round(total * 0.25));
+    if (!rEdited) $('red').value = Math.max(1, Math.round(total * 0.1));
+    readThresholds();
+  }
+
+  function applyInputs() {
+    var m = parseInt($('min').value, 10) || 0;
+    var s = parseInt($('sec').value, 10) || 0;
+    total = Math.max(1, Math.min(5999, m * 60 + s));
+    remaining = total * 1000;
+    finished = false;
+    autoThresholds();
+    render();
+  }
+
+  function setTime(sec) {
+    $('min').value = Math.floor(sec / 60);
+    $('sec').value = sec % 60;
+    if (running) pause();
+    applyInputs();
+  }
+
+  function beep(times) {
+    if (!soundOn || !audio) return;
+    for (var i = 0; i < times; i++) {
+      var o = audio.createOscillator(), g = audio.createGain();
+      var t0 = audio.currentTime + i * 0.35;
+      o.type = 'square'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t0); o.stop(t0 + 0.28);
+    }
+  }
+
+  function tick() {
+    remaining = Math.max(0, endAt - Date.now());
+    if (remaining === 0 && !finished) {
+      finished = true;
+      pause(true);
+      beep(3);
+    }
+    render();
+  }
+
+  function start() {
+    if (remaining <= 0) applyInputs();
+    if (!audio) {
+      try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audio = null; }
+    }
+    if (audio && audio.state === 'suspended') { try { audio.resume(); } catch (e) {} }
+    readThresholds();
+    running = true;
+    finished = false;
+    endAt = Date.now() + remaining;
+    clearInterval(timer);
+    timer = setInterval(tick, 100);
+    try {
+      if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { wake = w; }, function () {});
+    } catch (e) {}
+    render();
+  }
+
+  function pause(atZero) {
+    running = false;
+    clearInterval(timer);
+    if (!atZero) remaining = Math.max(0, endAt - Date.now());
+    if (wake) { try { wake.release(); } catch (e) {} wake = null; }
+    render();
+  }
+
+  function toggle() { running ? pause() : start(); }
+  function reset() { if (running) pause(); applyInputs(); }
+
+  function goFull() {
+    try {
+      if (document.fullscreenElement) { document.exitFullscreen(); return; }
+      var p = stage.requestFullscreen && stage.requestFullscreen();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+
+  $('go').addEventListener('click', toggle);
+  $('reset').addEventListener('click', reset);
+  $('full').addEventListener('click', goFull);
+  stage.addEventListener('click', toggle);
+  $('sound').addEventListener('click', function () {
+    soundOn = !soundOn;
+    this.setAttribute('aria-pressed', String(soundOn));
+    this.textContent = soundOn ? 'Sound on' : 'Sound off';
+  });
+  $('min').addEventListener('change', applyInputs);
+  $('sec').addEventListener('change', applyInputs);
+  $('yel').addEventListener('input', function () { yEdited = true; readThresholds(); render(); });
+  $('red').addEventListener('input', function () { rEdited = true; readThresholds(); render(); });
+  $('presets').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-sec]');
+    if (b) setTime(parseInt(b.dataset.sec, 10));
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && running) tick();
+  });
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'button' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.key === 'r' || e.key === 'R') reset();
+    else if (e.key === 'f' || e.key === 'F') goFull();
+  });
+
+  applyInputs();
+})();
+</script>
