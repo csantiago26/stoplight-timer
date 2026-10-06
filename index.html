@@ -1,7 +1,7 @@
 <title>Stoplight Countdown</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Orbitron:wght@600;800&display=swap">
 <style>
-/* Layout: one big stage that changes color with the time left, a compact control bar underneath. Single dark look on purpose, like a stage clock. */
+/* Layout: one big stage that changes color with the time left, a compact control bar underneath. Mini mode drops the control panel for a small bar. Single dark look on purpose, like a stage clock. */
 :root {
   --panel: #0d110f;
   --surface: #151b17;
@@ -24,6 +24,7 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
+  margin: 0;
   padding-inline: 16px;
   padding-block: 16px;
   display: flex;
@@ -51,7 +52,7 @@ body {
 .stage[data-phase="yellow"] { --c: var(--warn); --b: var(--warn-bg); }
 .stage[data-phase="red"], .stage[data-phase="done"] { --c: var(--stop); --b: var(--stop-bg); }
 .stage:fullscreen { border-radius: 0; border: 0; }
-.stage:focus-visible, button:focus-visible, input:focus-visible {
+.stage:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
@@ -127,7 +128,7 @@ input[type="number"] {
 }
 input[type="number"]:disabled { opacity: 0.5; }
 .sep { align-self: flex-end; padding-bottom: 9px; color: var(--muted); font-weight: 600; }
-button {
+button, select {
   font: 600 0.95rem var(--font-body);
   color: var(--ink);
   background: var(--panel);
@@ -136,14 +137,38 @@ button {
   padding: 10px 14px;
   cursor: pointer;
 }
-button:hover { border-color: var(--muted); }
+select:disabled { opacity: 0.5; cursor: default; }
+button:hover, select:hover { border-color: var(--muted); }
 button.primary { background: var(--go); color: #06230f; border-color: var(--go); min-width: 6.5rem; padding-block: 11px; }
 button.primary:hover { filter: brightness(1.08); }
 button[aria-pressed="true"] { border-color: var(--go); color: var(--go); }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .presets button { padding: 8px 11px; font-weight: 500; }
-.hint { font-size: 0.78rem; color: var(--muted); flex-basis: 100%; }
+.hint { font-size: 0.78rem; color: var(--muted); flex-basis: 100%; margin: 0; }
 kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+
+/* Mini bar and mini mode */
+.miniBar { display: none; align-items: center; gap: 8px; }
+.miniBar .primary { flex: 1; min-width: 0; padding-block: 8px; }
+.miniBar button, .miniBar select { padding: 8px 12px; font-size: 0.9rem; }
+.popped {
+  flex: 1;
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+}
+body.mini { padding: 8px; gap: 8px; }
+body.mini .controls { display: none; }
+body.mini .miniBar { display: flex; }
+body.mini .stage { min-height: 0; border-radius: 10px; }
+body.mini .label { top: 7px; left: 10px; right: 10px; font-size: 0.6rem; letter-spacing: 0.12em; }
+body.mini .bar { height: 6px; }
+
 @media (max-width: 520px) {
   .controls { gap: 12px 14px; }
   .group.main { width: 100%; }
@@ -160,6 +185,20 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
   <div class="bar"><i id="barFill"></i></div>
 </main>
 
+<div class="miniBar" id="miniBar">
+  <button type="button" class="primary m-go">Start</button>
+  <button type="button" class="m-reset">Reset</button>
+  <select class="m-pre" aria-label="Set time">
+    <option value="">Time</option>
+    <option value="60">1 min</option>
+    <option value="180">3 min</option>
+    <option value="300">5 min</option>
+    <option value="600">10 min</option>
+    <option value="900">15 min</option>
+    <option value="1800">30 min</option>
+  </select>
+</div>
+
 <section class="controls" aria-label="Timer controls">
   <div class="group main">
     <div class="field"><label for="min">Minutes</label><input id="min" type="number" min="0" max="99" value="5" inputmode="numeric"></div>
@@ -167,6 +206,7 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
     <div class="field"><label for="sec">Seconds</label><input id="sec" type="number" min="0" max="59" value="0" inputmode="numeric"></div>
     <button class="primary" id="go" type="button">Start</button>
     <button id="reset" type="button">Reset</button>
+    <button id="pop" type="button" title="Float a small timer on top of your other windows">Mini window</button>
     <button id="full" type="button">Fullscreen</button>
     <button id="sound" type="button" aria-pressed="true">Sound on</button>
   </div>
@@ -184,16 +224,20 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
     <div class="field"><label for="yel">Yellow at (sec left)</label><input id="yel" type="number" min="1" max="5999" value="75" inputmode="numeric"></div>
     <div class="field"><label for="red">Red at (sec left)</label><input id="red" type="number" min="1" max="5999" value="30" inputmode="numeric"></div>
   </div>
-  <p class="hint"><kbd>Space</kbd> start or pause &nbsp; <kbd>R</kbd> reset &nbsp; <kbd>F</kbd> fullscreen. Click the big clock to start or pause.</p>
+  <p class="hint"><kbd>Space</kbd> start or pause &nbsp; <kbd>R</kbd> reset &nbsp; <kbd>F</kbd> fullscreen. Click the big clock to start or pause. Open this page with <kbd>#mini</kbd> on the end of the link for the small layout.</p>
 </section>
 
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var stage = $('stage'), readout = $('readout'), barFill = $('barFill');
+  var phaseEl = $('phase'), totalEl = $('totalLabel'), goBtn = $('go'), popBtn = $('pop');
   var total = 300, remaining = 300000, running = false, endAt = 0, timer = null;
   var yellow = 75, red = 30, yEdited = false, rEdited = false;
   var audio = null, soundOn = true, wake = null, finished = false;
+  var tickWorker = null, workerUrl = null;
+  var pipWin = null, placeholder = null, miniBars = [];
+  var PRESETS = [60, 180, 300, 600, 900, 1800];
 
   var cells = [];
   ['d', 'd', 'c', 'd', 'd'].forEach(function (k) {
@@ -222,12 +266,18 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
     cells[3].textContent = t[3]; cells[4].textContent = t[4];
     var p = phaseFor(s);
     stage.dataset.phase = p;
-    $('phase').textContent = LABELS[p];
-    $('totalLabel').textContent = 'Total ' + fmt(total);
+    phaseEl.textContent = LABELS[p];
+    totalEl.textContent = 'Total ' + fmt(total);
     barFill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, remaining / (total * 1000))) + ')';
-    var btn = $('go');
-    btn.textContent = running ? 'Pause' : (remaining > 0 && remaining < total * 1000 ? 'Resume' : 'Start');
+    var label = running ? 'Pause' : (remaining > 0 && remaining < total * 1000 ? 'Resume' : 'Start');
+    goBtn.textContent = label;
     ['min', 'sec'].forEach(function (id) { $(id).disabled = running; });
+    miniBars.forEach(function (bar) {
+      bar.querySelector('.m-go').textContent = label;
+      var sel = bar.querySelector('.m-pre');
+      sel.value = PRESETS.indexOf(total) >= 0 ? String(total) : '';
+      sel.disabled = running;
+    });
   }
 
   function readThresholds() {
@@ -284,6 +334,25 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
     render();
   }
 
+  // A worker keeps ticking even when this tab is in the background.
+  function startTicker() {
+    stopTicker();
+    try {
+      workerUrl = URL.createObjectURL(new Blob(['setInterval(function(){postMessage(1)},100)'], { type: 'text/javascript' }));
+      tickWorker = new Worker(workerUrl);
+      tickWorker.onmessage = tick;
+      tickWorker.onerror = function () { if (!timer) timer = setInterval(tick, 100); };
+    } catch (e) {
+      timer = setInterval(tick, 100);
+    }
+  }
+  function stopTicker() {
+    if (tickWorker) { tickWorker.terminate(); tickWorker = null; }
+    if (workerUrl) { try { URL.revokeObjectURL(workerUrl); } catch (e) {} workerUrl = null; }
+    clearInterval(timer);
+    timer = null;
+  }
+
   function start() {
     if (remaining <= 0) applyInputs();
     if (!audio) {
@@ -294,8 +363,7 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
     running = true;
     finished = false;
     endAt = Date.now() + remaining;
-    clearInterval(timer);
-    timer = setInterval(tick, 100);
+    startTicker();
     try {
       if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { wake = w; }, function () {});
     } catch (e) {}
@@ -304,7 +372,7 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
 
   function pause(atZero) {
     running = false;
-    clearInterval(timer);
+    stopTicker();
     if (!atZero) remaining = Math.max(0, endAt - Date.now());
     if (wake) { try { wake.release(); } catch (e) {} wake = null; }
     render();
@@ -314,6 +382,7 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
   function reset() { if (running) pause(); applyInputs(); }
 
   function goFull() {
+    if (pipWin) return;
     try {
       if (document.fullscreenElement) { document.exitFullscreen(); return; }
       var p = stage.requestFullscreen && stage.requestFullscreen();
@@ -321,8 +390,88 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
     } catch (e) {}
   }
 
-  $('go').addEventListener('click', toggle);
+  function wireMini(bar) {
+    bar.querySelector('.m-go').addEventListener('click', toggle);
+    bar.querySelector('.m-reset').addEventListener('click', reset);
+    bar.querySelector('.m-pre').addEventListener('change', function () {
+      if (this.value) setTime(parseInt(this.value, 10));
+    });
+    miniBars.push(bar);
+  }
+
+  function onKey(e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'button' || tag === 'select' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.key === 'r' || e.key === 'R') reset();
+    else if (e.key === 'f' || e.key === 'F') goFull();
+  }
+
+  // Floating window that stays on top of other windows (Chrome and Edge).
+  function openPip(w) {
+    pipWin = w;
+    Array.prototype.forEach.call(document.styleSheets, function (ss) {
+      try {
+        var css = Array.prototype.map.call(ss.cssRules, function (r) { return r.cssText; }).join('\n');
+        var st = w.document.createElement('style');
+        st.textContent = css;
+        w.document.head.appendChild(st);
+      } catch (e) {
+        if (ss.href) {
+          var l = w.document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = ss.href;
+          w.document.head.appendChild(l);
+        }
+      }
+    });
+    w.document.title = 'Stoplight Countdown';
+    w.document.body.className = 'mini';
+    var bar = $('miniBar').cloneNode(true);
+    bar.removeAttribute('id');
+    placeholder = document.createElement('div');
+    placeholder.className = 'popped';
+    placeholder.textContent = 'The timer is in the small floating window. Close that window to bring it back here.';
+    stage.parentNode.insertBefore(placeholder, stage);
+    w.document.body.appendChild(stage);
+    w.document.body.appendChild(bar);
+    wireMini(bar);
+    w.document.addEventListener('keydown', onKey);
+    popBtn.textContent = 'Bring back';
+    w.addEventListener('pagehide', function () {
+      if (placeholder && placeholder.parentNode) placeholder.replaceWith(stage);
+      placeholder = null;
+      var i = miniBars.indexOf(bar);
+      if (i >= 0) miniBars.splice(i, 1);
+      pipWin = null;
+      popBtn.textContent = 'Mini window';
+      render();
+    });
+    render();
+  }
+
+  // Other browsers get a small separate window with its own timer.
+  function smallPopup() {
+    var w = null;
+    try { w = window.open(location.href.split('#')[0] + '#mini', 'stoplight-mini', 'popup=yes,width=360,height=230'); } catch (e) {}
+    if (!w) {
+      popBtn.textContent = 'Popup blocked';
+      setTimeout(function () { popBtn.textContent = 'Mini window'; }, 2500);
+    }
+  }
+
+  function popOut() {
+    if (pipWin) { pipWin.close(); return; }
+    if ('documentPictureInPicture' in window) {
+      window.documentPictureInPicture.requestWindow({ width: 340, height: 200 }).then(openPip, smallPopup);
+    } else {
+      smallPopup();
+    }
+  }
+
+  goBtn.addEventListener('click', toggle);
   $('reset').addEventListener('click', reset);
+  popBtn.addEventListener('click', popOut);
   $('full').addEventListener('click', goFull);
   stage.addEventListener('click', toggle);
   $('sound').addEventListener('click', function () {
@@ -341,13 +490,13 @@ kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--l
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && running) tick();
   });
-  document.addEventListener('keydown', function (e) {
-    var tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'button' || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.code === 'Space') { e.preventDefault(); toggle(); }
-    else if (e.key === 'r' || e.key === 'R') reset();
-    else if (e.key === 'f' || e.key === 'F') goFull();
-  });
+  document.addEventListener('keydown', onKey);
+
+  wireMini($('miniBar'));
+  if (location.hash === '#mini') {
+    document.body.classList.add('mini');
+    popBtn.hidden = true;
+  }
 
   applyInputs();
 })();
