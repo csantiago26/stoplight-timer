@@ -148,9 +148,14 @@ button[aria-pressed="true"] { border-color: var(--go); color: var(--go); }
 kbd { font-family: var(--font-body); font-weight: 600; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
 
 /* Mini bar and mini mode */
-.miniBar { display: none; align-items: center; gap: 8px; }
-.miniBar .primary { flex: 1; min-width: 0; padding-block: 8px; }
-.miniBar button, .miniBar select { padding: 8px 12px; font-size: 0.9rem; }
+.miniBar { display: none; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.miniBar .primary { min-width: 4.8rem; padding-block: 7px; }
+.miniBar button, .miniBar select { padding: 7px 12px; font-size: 0.88rem; }
+.m-th { display: flex; align-items: center; gap: 12px; }
+.m-f { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+.m-f.y { color: var(--warn); }
+.m-f.r { color: var(--stop); }
+.miniBar .m-f input { width: 3.3rem; padding: 5px 4px; font-size: 0.9rem; border-radius: 6px; text-align: center; }
 .popped {
   flex: 1;
   min-height: 240px;
@@ -197,6 +202,10 @@ body.mini .bar { height: 6px; }
     <option value="900">15 min</option>
     <option value="1800">30 min</option>
   </select>
+  <div class="m-th">
+    <label class="m-f y">Yellow at <input class="m-yel" type="number" min="1" max="5999" inputmode="numeric" aria-label="Turn yellow when this many seconds are left"> s</label>
+    <label class="m-f r">Red at <input class="m-red" type="number" min="1" max="5999" inputmode="numeric" aria-label="Turn red when this many seconds are left"> s</label>
+  </div>
 </div>
 
 <section class="controls" aria-label="Timer controls">
@@ -277,6 +286,10 @@ body.mini .bar { height: 6px; }
       var sel = bar.querySelector('.m-pre');
       sel.value = PRESETS.indexOf(total) >= 0 ? String(total) : '';
       sel.disabled = running;
+      [['.m-yel', 'yel'], ['.m-red', 'red']].forEach(function (p) {
+        var inp = bar.querySelector(p[0]);
+        if (inp.ownerDocument.activeElement !== inp) inp.value = $(p[1]).value;
+      });
     });
   }
 
@@ -396,6 +409,12 @@ body.mini .bar { height: 6px; }
     bar.querySelector('.m-pre').addEventListener('change', function () {
       if (this.value) setTime(parseInt(this.value, 10));
     });
+    bar.querySelector('.m-yel').addEventListener('input', function () {
+      $('yel').value = this.value; yEdited = true; readThresholds(); render();
+    });
+    bar.querySelector('.m-red').addEventListener('input', function () {
+      $('red').value = this.value; rEdited = true; readThresholds(); render();
+    });
     miniBars.push(bar);
   }
 
@@ -453,7 +472,7 @@ body.mini .bar { height: 6px; }
   // Other browsers get a small separate window with its own timer.
   function smallPopup() {
     var w = null;
-    try { w = window.open(location.href.split('#')[0] + '#mini', 'stoplight-mini', 'popup=yes,width=360,height=230'); } catch (e) {}
+    try { w = window.open(location.href.split('#')[0] + '#mini', 'stoplight-mini', 'popup=yes,width=380,height=260'); } catch (e) {}
     if (!w) {
       popBtn.textContent = 'Popup blocked';
       setTimeout(function () { popBtn.textContent = 'Mini window'; }, 2500);
@@ -463,7 +482,7 @@ body.mini .bar { height: 6px; }
   function popOut() {
     if (pipWin) { pipWin.close(); return; }
     if ('documentPictureInPicture' in window) {
-      window.documentPictureInPicture.requestWindow({ width: 340, height: 200 }).then(openPip, smallPopup);
+      window.documentPictureInPicture.requestWindow({ width: 360, height: 250 }).then(openPip, smallPopup);
     } else {
       smallPopup();
     }
